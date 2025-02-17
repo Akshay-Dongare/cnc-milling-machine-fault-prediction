@@ -2,16 +2,22 @@ import streamlit as st
 import numpy as np
 import joblib
 import pandas as pd
-import tensorflow as tf
+from sklearn.tree import DecisionTreeClassifier
 
-# Load the trained model
-model = tf.keras.models.load_model('MLGuard.keras')
 
-# Load the LabelEncoder
-label_encoder = joblib.load('label_encoder.joblib')
+# # Load the trained model
+# model = tf.keras.models.load_model('MLGuard.keras')
 
-# Load the pre-fitted scaler
-scaler = joblib.load('scaler.joblib')
+# load trained models
+tree_model = joblib.load('best_tree.joblib')
+mlp_model = joblib.load('mlp_model.joblib')
+
+# Load the LabelEncoder (only relevant for model 2)
+label_encoder = joblib.load('new_label_encoder.joblib')
+
+# Load the pre-fitted scalers
+scaler1 = joblib.load('model1_scaler.joblib')
+scaler2 = joblib.load('model2_scaler.joblib')
 
 # Define the feature names
 feature_names = [
@@ -24,6 +30,7 @@ feature_names = [
 
 # Define the failure types
 failure_types = label_encoder.classes_
+targets = {0: 'No_Failure', 1: 'Failure'}
 
 # Streamlit app
 st.set_page_config(page_title="MLGuard Failure Prediction", layout="centered")
@@ -39,30 +46,41 @@ for feature in feature_names:
 input_data_df = pd.DataFrame([input_data], columns=feature_names)
 
 # Standardize the input data using the pre-fitted scaler
-input_data_scaled = scaler.transform(input_data_df)
+input_data_scaled = scaler1.transform(input_data_df)
+input_data_scaled_2 = scaler2.transform(input_data_df)
 
-# Make prediction
+# Make prediction for first model
 if st.button("Predict"):
-    prediction = model.predict(input_data_scaled)
-    predicted_class = np.argmax(prediction, axis=1)[0]
-    predicted_probabilities = prediction[0]
+    prediction = tree_model.predict(input_data_scaled)
+    predicted_class = prediction[0]
 
-    # Display the result
-    if predicted_class == 0:  # Assuming 'No_Failure' is class 0
-        st.write(f"Prediction: {failure_types[predicted_class]}")
-    else:
-        st.write(f"Prediction: {failure_types[predicted_class]}")
+    # display result
+    st.write(f"Prediction: {targets[predicted_class]}")
 
-    # Display probabilities
-    st.subheader("Failure Type Probabilities:")
-    sorted_indices = np.argsort(predicted_probabilities)[::-1]
-    for idx in sorted_indices:
-        st.write(f"{failure_types[idx]}: {predicted_probabilities[idx] * 100:.2f}%")
+    if predicted_class == 1:
 
-    # Display a bar chart for probabilities
-    probabilities_df = pd.DataFrame(predicted_probabilities * 100, index=failure_types, columns=["Probability"])
-    st.bar_chart(probabilities_df)
+        # run neural net
+        failure_prediction = mlp_model.predict(input_data_scaled_2)[0]
+        failure_probas = mlp_model.predict_proba(input_data_scaled_2)[0]
+
+        # Display the result
+        st.write(f"Predicted Failure Type: {failure_types[failure_prediction]}")
+
+        # Display probabilities
+        st.subheader("Failure Type Probabilities:")
+        sorted_indices = np.argsort(failure_probas)[::-1]
+        for idx in sorted_indices:
+            st.write(f"{failure_types[idx]}: {failure_probas[idx] * 100:.2f}%")
+        # for id, prob in enumerate(failure_probas):
+        #     st.write(f'{label_encoder.inverse_transform([id])[0]}: {prob:.6f}')
+
+        # Display a bar chart for probabilities
+        # probabilities_df = pd.DataFrame(failure_probas * 100, index=failure_types, columns=["Probability"])
+        probabilities_data = [{'Failure Type': failure_types[i], 'Probability': prob * 100} for i, prob in enumerate(failure_probas)]
+        probabilities_df = pd.DataFrame(probabilities_data)
+        probabilities_df = probabilities_df.set_index('Failure Type')
+        st.bar_chart(probabilities_df)
 
 # Footer
 st.markdown("---")
-st.markdown("Developed by Team Magenta | Powered by Streamlit and TensorFlow")
+st.markdown("Developed by Team Magenta | Powered by Streamlit and Scikit")
