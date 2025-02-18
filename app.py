@@ -16,8 +16,8 @@ mlp_model = joblib.load('mlp_model.joblib')
 label_encoder = joblib.load('new_label_encoder.joblib')
 
 # Load the pre-fitted scalers
-scaler1 = joblib.load('model1_scaler.joblib')
-scaler2 = joblib.load('model2_scaler.joblib')
+scaler1 = joblib.load('dTree_scaler.joblib')
+scaler2 = joblib.load('nn_scaler.joblib')
 
 # Define the feature names
 feature_names = [
